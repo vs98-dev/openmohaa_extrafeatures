@@ -37,7 +37,7 @@ game_export_t	*ge = NULL;
 cvar_t	*sv_fps;				// time rate for running non-clients
 cvar_t	*sv_timeout;			// seconds without any message
 cvar_t	*sv_zombietime;			// seconds to sink messages after disconnect
-cvar_t	*sv_rconPassword[MAX_RCONPASSWORDS];		// password for remote server commands
+cvar_t	*sv_rconPassword[8];		// password for remote server commands
 cvar_t	*sv_privatePassword;	// password for the privateClient slots
 cvar_t	*sv_allowDownload;
 cvar_t	*sv_maxclients;
@@ -675,50 +675,48 @@ Redirect all printfs
 static void SVC_RemoteCommand( netadr_t from, msg_t *msg ) {
 	qboolean	valid;
 	char		remaining[1024];
-	//opm_features version 1
-    int i;
-    int rcon_wrong = 0;
-    int rcon_empty = 0;
-
 	// TTimo - scaled down to accumulate, but not overflow anything network wise, print wise etc.
 	// (OOB messages are the bottleneck here)
 #define SV_OUTPUTBUF_LENGTH (8192 - 16)
 	char		sv_outputbuf[SV_OUTPUTBUF_LENGTH];
 	char *cmd_aux;
+        int index;
+	int rcon_empty = 0;
+	int rcon_wrong = 0;	
+// Prevent using rcon as an amplifier and make dictionary attacks impractical
+	if ( SVC_RateLimitAddress( from, 10, 1000 ) ) {
+		Com_DPrintf( "SVC_RemoteCommand: rate limit from %s exceeded, dropping request\n",
+			NET_AdrToString( from ) );
+		return;
+	}
 
-	// Prevent using rcon as an amplifier and make dictionary attacks impractical
-    if (SVC_RateLimitAddress(from, 10, 1000)) {
-        Com_DPrintf("SVC_RemoteCommand: rate limit from %s exceeded, dropping request\n", NET_AdrToString(from));
-        return;
-    }
+	for(index = 0;index < 8;index++)
+	{
+		if(!strlen (sv_rconPassword[index]->string))
+		{
+			rcon_empty++;
+		}
 
-	for (i = 0; i < MAX_RCONPASSWORDS; i++) {
-        if (strcmp(Cmd_Argv(1), sv_rconPassword[i]->string)) {
-           
+		if(strcmp (Cmd_Argv(1), sv_rconPassword[index]->string))
+		{
 			rcon_wrong++;
-           
-        }
+		}
+	}
 
-		if (!strlen(sv_rconPassword[i]->string)) {
-            rcon_empty++;
-        }
-    }
+	if(rcon_wrong == 8)
+	{
+	
+		static leakyBucket_t bucket;
 
-	if (rcon_wrong == (MAX_RCONPASSWORDS - 1)) {
-        static leakyBucket_t bucket;
-        // Make DoS via rcon impractical
-        if (SVC_RateLimit(&bucket, 10, 1000)) {
-            Com_DPrintf("SVC_RemoteCommand: rate limit exceeded, dropping request\n");
-            return;
-        }
+		// Make DoS via rcon impractical
+		if ( SVC_RateLimit( &bucket, 10, 1000 ) ) {
+			Com_DPrintf( "SVC_RemoteCommand: rate limit exceeded, dropping request\n" );
+			return;
+		}
 
 		valid = qfalse;
-    }
-	
-	if (!valid) {
-        Com_Printf("Bad rcon from %s:\n%s\n", NET_AdrToString(from), Cmd_Argv(2));
-    }
-	else {
+		Com_Printf ("Bad rcon from %s:\n%s\n", NET_AdrToString (from), Cmd_Argv(2) );
+	} else {
 		valid = qtrue;
 		Com_Printf ("Rcon from %s:\n%s\n", NET_AdrToString (from), Cmd_Argv(2) );
 	}
@@ -727,7 +725,7 @@ static void SVC_RemoteCommand( netadr_t from, msg_t *msg ) {
 	svs.redirectAddress = from;
 	Com_BeginRedirect (sv_outputbuf, SV_OUTPUTBUF_LENGTH, SV_FlushRedirect);
 
-	if ( rcon_empty == ( MAX_RCONPASSWORDS - 1 )) {
+	if ( rcon_empty == 8 ) {
 		Com_Printf ("No rconpassword set on the server.\n");
 	} else if ( !valid ) {
 		Com_Printf ("Bad rconpassword.\n");
@@ -771,7 +769,7 @@ void SV_ConnectionlessPacket( netadr_t from, msg_t *msg ) {
 	char	*c;
 
 	if (sv_netprofile->integer) {
-		NetProfileAddPacket(&svs.netprofile.inPackets, msg->cursize, NETPROF_PACKET_MESSAGE);
+		NetProfileAddPacket(&svs.netprofile.upstream, msg->cursize, NETPROF_PACKET_MESSAGE);
 	}
 
 	MSG_BeginReadingOOB( msg );

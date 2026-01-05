@@ -346,8 +346,7 @@ extern	game_export_t	*ge;				// game exports
 extern	cvar_t	*sv_fps;
 extern	cvar_t	*sv_timeout;
 extern	cvar_t	*sv_zombietime;
-//opm_features version 1
-extern	cvar_t	*sv_rconPassword[MAX_RCONPASSWORDS];
+extern	cvar_t	*sv_rconPassword[8];
 extern	cvar_t	*sv_privatePassword;
 extern	cvar_t	*sv_allowDownload;
 extern	cvar_t	*sv_maxclients;
@@ -502,7 +501,8 @@ void SV_ApplyFirstConfigTweaks();
 //
 // sv_client.c
 //
-challenge_t* FindChallenge(netadr_t from, qboolean connecting); 
+challenge_t* FindChallenge(netadr_t from, qboolean connecting);
+challenge_t* FindExistingChallenge(netadr_t from);
 void SV_GetChallenge(netadr_t from);
 
 void SV_DirectConnect( netadr_t from );

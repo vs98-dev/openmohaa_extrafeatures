@@ -1084,11 +1084,10 @@ void SV_Init (void)
 	Cvar_Get ("sv_referencedPakNames", "", CVAR_SYSTEMINFO | CVAR_ROM );
 
 	// server vars
-	//opm_features version 1
-    sv_rconPassword[0]  = Cvar_Get("rconPassword1", "", CVAR_TEMP);
-    for (index = 1; index < MAX_RCONPASSWORDS; index++) {
-        sv_rconPassword[index] = Cvar_Get(va("rconPassword%d", index + 1), "", CVAR_TEMP);
-    }
+	sv_rconPassword[0] = Cvar_Get ("rconPassword1", "", CVAR_TEMP );
+	for(index = 1;index < 8;index++){
+	sv_rconPassword[index] = Cvar_Get (va("rconPassword%d", index  + 1), "", CVAR_TEMP);
+	}
 
 	sv_privatePassword = Cvar_Get ("sv_privatePassword", "", CVAR_TEMP );
 	sv_fps = Cvar_Get ("sv_fps", "20", CVAR_SAVEGAME | CVAR_SERVERINFO | CVAR_NORESTART );
